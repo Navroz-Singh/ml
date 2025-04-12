@@ -2,7 +2,6 @@
 import { useState } from 'react'
 
 export default function Home() {
-    const [headline, setHeadline] = useState('')
     const [body, setBody] = useState('')
     const [results, setResults] = useState(null)
     const [loading, setLoading] = useState(false)
@@ -15,7 +14,7 @@ export default function Home() {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ headline, body }),
+                body: JSON.stringify({ body }),
             })
 
             const data = await res.json()
@@ -31,15 +30,6 @@ export default function Home() {
         <main className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4">
             <div className="bg-white p-6 rounded-2xl shadow-lg w-full max-w-2xl space-y-4">
                 <h1 className="text-2xl font-bold text-center">Rumor Dectection</h1>
-
-                <input
-                    type="text"
-                    placeholder="Enter Headline"
-                    value={headline}
-                    onChange={(e) => setHeadline(e.target.value)}
-                    className="w-full p-3 border rounded-xl"
-                />
-
                 <textarea
                     placeholder="Enter Body"
                     value={body}

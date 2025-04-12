@@ -1,45 +1,63 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import pickle
-import os
 import numpy as np
+import tensorflow as tf
+from tensorflow.keras.models import load_model
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+from tensorflow.keras.preprocessing.text import tokenizer_from_json
+import json
+import re
+import nltk
+from nltk.corpus import stopwords
+from nltk.stem import PorterStemmer, WordNetLemmatizer
+
+nltk.download('stopwords')
+nltk.download('wordnet')
 
 app = Flask(__name__)
 CORS(app)
 
-def load_pickle(path):
-    with open(path, 'rb') as f:
-        return pickle.load(f)
+# Load tokenizer
+with open('models/tokenizer.json', 'r') as f:
+    tokenizer_data = json.load(f)
+tokenizer = tokenizer_from_json(tokenizer_data)
 
-vectorizer = load_pickle('models/vectorizer.pkl')
-svd = load_pickle('models/svd.pkl')
-scaler = load_pickle('models/scaler.pkl')
+max_sequence_length = 200
 
-lr_model = load_pickle('models/logistic_regression.pkl')
-svm_model = load_pickle('models/svm_rbf.pkl')
-rf_model = load_pickle('models/random_forest.pkl')
-ann_model = load_pickle('models/neural_network.pkl')
+base_model = load_model('models/base_model.h5')
+improved_model = load_model('models/improved_model.h5')
+
+def clean_text(text):
+    if not text:
+        return ""
+    text = re.sub(r'[^A-Za-z\s]', '', text)
+    text = text.lower()
+    words = text.split()
+    stop_words = set(stopwords.words('english'))
+    words = [w for w in words if w not in stop_words]
+    stemmer = PorterStemmer()
+    lemmatizer = WordNetLemmatizer()
+    words = [lemmatizer.lemmatize(stemmer.stem(w)) for w in words]
+    return " ".join(words)
 
 @app.route('/predict', methods=['POST'])
 def predict():
     data = request.get_json()
-    headline = data.get('headline', '')
-    body = data.get('body', '')
+    body = data.get('body')
 
-    if not headline or not body:
-        return jsonify({'error': 'Headline and Body are required'}), 400
+    if not body:
+        return jsonify({'error': 'Body is required'}), 400
 
-    # Combine text
-    text = headline + ' ' + body
-    tfidf_vector = vectorizer.transform([text])
-    svd_vector = svd.transform(tfidf_vector)
-    scaled_vector = scaler.transform(svd_vector)
+    cleaned_text = clean_text(body)
+    sequence = tokenizer.texts_to_sequences([cleaned_text])
+    padded = pad_sequences(sequence, maxlen=max_sequence_length)
+
+    base_pred = base_model.predict(padded)[0][0]
+    improved_pred = improved_model.predict(padded)[0][0]
 
     predictions = {
-        'Logistic Regression': int(lr_model.predict(svd_vector)[0]),
-        'RBF SVM': int(svm_model.predict(scaled_vector)[0]),
-        'Random Forest': int(rf_model.predict(tfidf_vector)[0]),
-        'Neural Network': int(ann_model.predict(scaled_vector)[0]),
+        'Base Model': int(base_pred > 0.5),
+        'Improved Model': int(improved_pred > 0.5)
     }
 
     return jsonify(predictions)

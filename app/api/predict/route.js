@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server'
 
 export async function POST(req) {
-  const { headline, body } = await req.json()
+  const { body } = await req.json()
 
   try {
     const response = await fetch('http://localhost:5000/predict', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ headline, body }),
+      body: JSON.stringify({ body }),
     })
 
     const data = await response.json()
